@@ -224,7 +224,18 @@ namespace PacketLib {
     export function onReceivePacket(handler: (packet: Packet) => void): void {
         receiveHandler = handler
     }
-
+    /**
+ * Convert a Micro:bit Buffer into a UTF-8 string.
+ * @param buf the buffer to convert
+ */
+    //% block="convert buffer %buf to string"
+    export function bufferToString(buf: Buffer): string {
+        let s = ""
+        for (let i = 0; i < buf.length; i++) {
+            s += String.fromCharCode(buf[i])
+        }
+        return s
+    }
     // ===== Radio Integration =====
 
     radio.onReceivedBuffer(function (buf) {
