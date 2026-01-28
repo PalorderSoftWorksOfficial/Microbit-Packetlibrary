@@ -14,9 +14,19 @@
  *
  * Transport guarantees (delivery, ordering, duplication) are NOT
  * provided by the radio layer and must be handled at protocol level.
+ * This is the furthest you can with the radio api exposed to Typescript,
+ * This is already way to advanced for normal packet handeling.
  */
 //% color=#5E3BE1 icon="" block="PacketLib"
 namespace PacketLib {
+    /**
+     * An internal function used to copyBuffers
+     */
+    function copyBuffer(src: Buffer, dst: Buffer, offset: number): void {
+        for (let i = 0; i < src.length; i++) {
+            dst[offset + i] = src[i]
+        }
+    }
 
     // ===== Constants =====
 
@@ -119,7 +129,7 @@ namespace PacketLib {
         offset += writeString(buf, offset, destination)
 
         buf[offset++] = payload.length
-        payload.copyTo(buf, offset)
+        copyBuffer(payload, buf, offset)
         offset += payload.length
 
         buf[offset] = computeChecksum(buf, offset)
