@@ -141,4 +141,4 @@ Contributions are welcome! Suggested improvements include:
 ## Contact
 
 **Author:** PalorderSoftWorks  
-**Email / GitHub:** [Your GitHub or contact info]  
+**Email / GitHub:** PalorderSoftWorks@gmail.com
