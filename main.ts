@@ -50,7 +50,7 @@ namespace PacketLib {
             dst[offset + i] = src[i]
         }
     }
-
+    
     // ===== Constants =====
 
     const PROTOCOL_VERSION = 1
@@ -235,6 +235,13 @@ namespace PacketLib {
             s += String.fromCharCode(buf[i])
         }
         return s
+    }
+    export function stringToBuffer(s: string): Buffer {
+        let buf = pins.createBuffer(s.length)
+        for (let i = 0; i < s.length; i++) {
+            buf[i] = s.charCodeAt(i)
+        }
+        return buf
     }
     // ===== Radio Integration =====
 
