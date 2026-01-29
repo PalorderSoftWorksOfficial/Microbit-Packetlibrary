@@ -43,14 +43,19 @@
 //% color=#5E3BE1 icon="" block="PacketLib"
 namespace PacketLib {
     /**
+     * Setup radio defaults for PacketLib
+     */
+    radio.setGroup(0)
+
+    /**
      * An internal function used to copyBuffers
      */
     function copyBuffer(src: Buffer, dst: Buffer, offset: number): void {
-        for (let i = 0; i < src.length; i++) {
+        for (let i = 0; i < src.length && (offset + i) < dst.length; i++) {
             dst[offset + i] = src[i]
         }
     }
-    
+
     // ===== Constants =====
 
     const PROTOCOL_VERSION = 1
@@ -97,15 +102,15 @@ namespace PacketLib {
 
     function computeChecksum(buf: Buffer, length: number): number {
         let sum = 0
-        for (let i = 0; i < length; i++) {
+        for (let i = 0; i < length && i < buf.length; i++) {
             sum ^= buf[i]
         }
-        return sum
+        return sum & 0xFF
     }
 
     function writeString(buf: Buffer, offset: number, value: string): number {
         buf[offset] = value.length
-        for (let i = 0; i < value.length; i++) {
+        for (let i = 0; i < value.length && (offset + 1 + i) < buf.length; i++) {
             buf[offset + 1 + i] = value.charCodeAt(i)
         }
         return 1 + value.length
@@ -113,6 +118,9 @@ namespace PacketLib {
 
     function readString(buf: Buffer, offset: number): { value: string, size: number } {
         let len = buf[offset]
+        if (offset + 1 + len > buf.length) {
+            len = Math.max(0, buf.length - (offset + 1))
+        }
         let s = ""
         for (let i = 0; i < len; i++) {
             s += String.fromCharCode(buf[offset + 1 + i])
@@ -131,13 +139,16 @@ namespace PacketLib {
 
         if (id == 0) id = generatePacketId()
 
+        let payloadLen = payload.length
+        if (payloadLen > 255) payloadLen = 255
+
         let baseSize =
             1 + // version
             1 + // flags
             2 + // id
             1 + localId.length +
             1 + destination.length +
-            1 + payload.length +
+            1 + payloadLen +
             1   // checksum
 
         let buf = pins.createBuffer(baseSize)
@@ -151,9 +162,9 @@ namespace PacketLib {
         offset += writeString(buf, offset, localId)
         offset += writeString(buf, offset, destination)
 
-        buf[offset++] = payload.length
-        copyBuffer(payload, buf, offset)
-        offset += payload.length
+        buf[offset++] = payloadLen
+        copyBuffer(payload.slice(0, payloadLen), buf, offset)
+        offset += payloadLen
 
         buf[offset] = computeChecksum(buf, offset)
 
@@ -177,7 +188,9 @@ namespace PacketLib {
         offset += dst.size
 
         let payloadLen = buf[offset++]
-        let payload = buf.slice(offset, payloadLen)
+        let end = offset + payloadLen
+        if (end > buf.length - 1) end = buf.length - 1
+        let payload = buf.slice(offset, end)
 
         return {
             version: version,
@@ -207,6 +220,8 @@ namespace PacketLib {
         flags: PacketFlags = PacketFlags.None
     ): void {
 
+        if (id == 0) id = generatePacketId()
+
         let pkt = encodePacket(id, destination, payload, flags)
         radio.sendBuffer(pkt)
 
@@ -224,10 +239,11 @@ namespace PacketLib {
     export function onReceivePacket(handler: (packet: Packet) => void): void {
         receiveHandler = handler
     }
+
     /**
- * Convert a Micro:bit Buffer into a UTF-8 string.
- * @param buf the buffer to convert
- */
+     * Convert a Micro:bit Buffer into a UTF-8 string.
+     * @param buf the buffer to convert
+     */
     //% block="convert buffer %buf to string"
     export function bufferToString(buf: Buffer): string {
         let s = ""
@@ -236,6 +252,7 @@ namespace PacketLib {
         }
         return s
     }
+
     export function stringToBuffer(s: string): Buffer {
         let buf = pins.createBuffer(s.length)
         for (let i = 0; i < s.length; i++) {
@@ -243,9 +260,12 @@ namespace PacketLib {
         }
         return buf
     }
+
     // ===== Radio Integration =====
 
     radio.onReceivedBuffer(function (buf) {
+
+        if (!buf || buf.length < 6) return
 
         let checksum = buf[buf.length - 1]
         if (computeChecksum(buf, buf.length - 1) != checksum) {
@@ -270,7 +290,7 @@ namespace PacketLib {
             radio.sendBuffer(ack)
         }
 
-        if (receiveHandler) {
+        if (receiveHandler && (packet.destination == localId || packet.destination == "*" || packet.destination == "")) {
             receiveHandler(packet)
         }
     })
